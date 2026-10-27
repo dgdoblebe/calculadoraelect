@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Electro Calc</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#090d16',
+                        cardbg: 'rgba(15, 23, 42, 0.7)',
+                        cardlight: 'rgba(255, 255, 255, 0.85)',
+                        neoncyan: '#06b6d4',
+                        neonblue: '#3b82f6',
+                        neongreen: '#10b981',
+                        neonamber: '#f59e0b'
+                    },
+                    boxShadow: {
+                        'neon-cyan': '0 0 25px rgba(6, 182, 212, 0.15)',
+                        'neon-blue': '0 0 25px rgba(59, 130, 246, 0.15)',
+                        'glow': '0 10px 30px -10px rgba(0, 0, 0, 0.3)'
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- Alpine.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- FontAwesome Pro / Free Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .glass-dark {
+            background: rgba(13, 20, 36, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .glass-light {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.3);
+            border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 116, 139, 0.5);
+        }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body class="h-full bg-slate-950 text-slate-100 transition-colors duration-500 overflow-x-hidden" 
+      x-data="appManager()" :class="{ 'dark': darkMode, 'bg-slate-950': darkMode, 'bg-slate-100 text-slate-800': !darkMode }">
+
+    <div class="min-h-full flex flex-col selection:bg-cyan-500 selection:text-white">
+        
+        <!-- Header / Navigation Bar -->
+        <header :class="darkMode ? 'glass-dark border-slate-800/80' : 'glass-light border-slate-200'" class="sticky top-0 z-50 px-4 sm:px-8 py-3.5 flex items-center justify-between shadow-lg transition-colors duration-300">
+            <div class="flex items-center space-x-3.5">
+                <div class="w-11 h-11 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/25">
+                    <i class="fa-solid fa-bolt-lightning text-xl animate-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="font-extrabold text-lg sm:text-xl tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-indigo-400 bg-clip-text text-transparent">ElectroCalc Ultra</h1>
+                    <p class="text-[11px] font-medium tracking-wide text-slate-400 dark:text-slate-400">Herramienta Profesional</p>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <!-- History Modal Trigger -->
+                <button @click="showHistoryModal = true" class="relative p-2.5 rounded-xl transition-all duration-200 focus:outline-none"
+                        :class="darkMode ? 'bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-800' : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 shadow-sm'"
+                        title="Historial de Cálculos">
+                    <i class="fa-solid fa-clock-rotate-left"></i>
+                    <span x-show="history.length > 0" class="absolute -top-1 -right-1 w-5 h-5 bg-cyan-500 text-white rounded-full text-[10px] font-bold flex items-center justify-center" x-text="history.length"></span>
+                </button>
+
+                <!-- Theme Toggle -->
+                <button @click="toggleDarkMode()" class="p-2.5 rounded-xl transition-all duration-200 focus:outline-none"
+                        :class="darkMode ? 'bg-slate-900/80 hover:bg-slate-800 text-cyan-400 border border-slate-800' : 'bg-white hover:bg-slate-100 text-amber-500 border border-slate-200 shadow-sm'"
+                        :title="darkMode ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'">
+                    <i class="fa-solid" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <div class="flex-1 flex flex-col xl:flex-row max-w-7xl w-full mx-auto p-4 sm:p-6 gap-6">
+            
+            <!-- Sidebar Navigation Tabs -->
+            <nav class="w-full xl:w-72 flex xl:flex-col gap-2 overflow-x-auto pb-2 xl:pb-0 custom-scrollbar shrink-0">
+                <template x-for="tab in tabs" :key="tab.id">
+                    <button @click="activeTab = tab.id"
+                            :class="activeTab === tab.id ? 
+                                'bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-lg shadow-cyan-500/25 scale-[1.01]' : 
+                                (darkMode ? 'bg-slate-900/60 hover:bg-slate-800/80 text-slate-300 border border-slate-800/80' : 'bg-white/90 hover:bg-slate-100 text-slate-700 border border-slate-200/80 shadow-sm')"
+                            class="flex items-center space-x-3.5 px-4.5 py-3.5 rounded-2xl font-semibold text-sm transition-all duration-200 whitespace-nowrap text-left">
+                        <div class="w-8 h-8 rounded-xl flex items-center justify-center" :class="activeTab === tab.id ? 'bg-white/20' : (darkMode ? 'bg-slate-800 text-cyan-400' : 'bg-slate-100 text-blue-600')">
+                            <i :class="tab.icon" class="text-base"></i>
+                        </div>
+                        <span x-text="tab.name"></span>
+                    </button>
+                </template>
+            </nav>
+
+            <!-- Dynamic Workspace Panels -->
+            <main class="flex-1 min-w-0">
+                
+                <!-- 1. LEY DE OHM Y POTENCIA (RUEDA DE OHM) -->
+                <div x-show="activeTab === 'ohm'" x-cloak class="space-y-6">
+                    <div :class="darkMode ? 'glass-dark' : 'glass-light'" class="rounded-3xl p-6 sm:p-8 shadow-xl">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/30">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="p-3 bg-cyan-500/10 text-cyan-400 rounded-2xl border border-cyan-500/20">
+                                    <i class="fa-solid fa-calculator text-2xl"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold tracking-tight">Ley de Ohm y Rueda de Potencia</h2>
+                                    <p class="text-xs text-slate-400">Seleccione dos parámetros conocidos para calcular automáticamente los faltantes.</p>
+                                </div>
+                            </div>
+                            <button @click="saveToHistory('Ley de Ohm', ohmResultText)" class="px-4 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2">
+                                <i class="fa-solid fa-bookmark"></i>
+                                <span>Guardar en Historial</span>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+                            <div class="space-y-2">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Primer Parámetro Conocido</label>
+                                <select x-model="ohm.var1" class="w-full bg-slate-900/60 dark:bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-slate-200">
+                                    <option value="V">Voltaje (V) - Voltios</option>
+                                    <option value="I">Corriente (I) - Amperios</option>
+                                    <option value="R">Resistencia (R) - Ohmios</option>
+                                    <option value="P">Potencia (P) - Vatios</option>
+                                </select>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Valor Numérico 1</label>
+                                <input type="number" step="any" x-model.number="ohm.val1" placeholder="Ej. 230" class="w-full bg-slate-900/60 dark:bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-slate-200">
+                            </div>
+
+                            <div class="space-y-2">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Segundo Parámetro Conocido</label>
+                                <select x-model="ohm.var2" class="w-full bg-slate-900/60 dark:bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-slate-200">
+                                    <option value="V">Voltaje (V) - Voltios</option>
+                                    <option value="I" selected>Corriente (I) - Amperios</option>
+                                    <option value="R">Resistencia (R) - Ohmios</option>
+                                    <option value="P">Potencia (P) - Vatios</option>
+                                </select>
+                            </div>
+                            <div class="space-y-2">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Valor Numérico 2</label>
+                                <input type="number" step="any" x-model.number="ohm.val2" placeholder="Ej. 10" class="w-full bg-slate-900/60 dark:bg-slate-900/80 border border-slate-700/80 rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-cyan-500 text-slate-200">
+                            </div>
+                        </div>
+
+                        <!-- Resultados Grid -->
+                        <div class="bg-gradient-to-br from-cyan-500/10 via-blue-500/10 to-indigo-500/10 border border-cyan-500/20 rounded-2xl p-6">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-4 flex items-center justify-between">
+                                <span>Resultados Obtenidos</span>
+                                <span class="text-slate-400 font-normal">Cálculo en tiempo real</span>
+                            </h3>
+                            <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 relative group">
+                                    <span class="text-[11px] font-medium text-slate-400">Voltaje (V)</span>
+                                    <p class="text-2xl font-extrabold text-cyan-400 mt-1" x-text="ohmResult.V !== null ? ohmResult.V.toFixed(2) + ' V' : '-'"></p>
+                                    <button @click="copyText(ohmResult.V !== null ? ohmResult.V.toFixed(2) + ' V' : '')" class="absolute top-3 right-3 text-slate-500 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fa-regular fa-copy"></i></button>
+                                </div>
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 relative group">
+                                    <span class="text-[11px] font-medium text-slate-400">Corriente (I)</span>
+                                    <p class="text-2xl font-extrabold text-cyan-400 mt-1" x-text="ohmResult.I !== null ? ohmResult.I.toFixed(2) + ' A' : '-'"></p>
+                                    <button @click="copyText(ohmResult.I !== null ? ohmResult.I.toFixed(2) + ' A' : '')" class="absolute top-3 right-3 text-slate-500 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fa-regular fa-copy"></i></button>
+                                </div>
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 relative group">
+                                    <span class="text-[11px] font-medium text-slate-400">Resistencia (R)</span>
+                                    <p class="text-2xl font-extrabold text-cyan-400 mt-1" x-text="ohmResult.R !== null ? ohmResult.R.toFixed(2) + ' Ω' : '-'"></p>
+                                    <button @click="copyText(ohmResult.R !== null ? ohmResult.R.toFixed(2) + ' Ω' : '')" class="absolute top-3 right-3 text-slate-500 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fa-regular fa-copy"></i></button>
+                                </div>
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800 relative group">
+                                    <span class="text-[11px] font-medium text-slate-400">Potencia (P)</span>
+                                    <p class="text-2xl font-extrabold text-cyan-400 mt-1" x-text="ohmResult.P !== null ? ohmResult.P.toFixed(2) + ' W' : '-'"></p>
+                                    <button @click="copyText(ohmResult.P !== null ? ohmResult.P.toFixed(2) + ' W' : '')" class="absolute top-3 right-3 text-slate-500 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity"><i class="fa-regular fa-copy"></i></button>
+                                </div>
+                            </div>
+                            <div class="text-xs text-slate-300 bg-slate-900/50 p-4 rounded-xl border border-slate-800/80 flex items-center justify-between">
+                                <div>
+                                    <span class="font-semibold text-cyan-400 block mb-0.5">Fórmulas Aplicadas:</span>
+                                    <p class="font-mono text-slate-400" x-text="ohmResult.formulaText"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 2. CAÍDA DE TENSIÓN (VOLTAGE DROP) -->
+                <div x-show="activeTab === 'voltage_drop'" x-cloak class="space-y-6">
+                    <div :class="darkMode ? 'glass-dark' : 'glass-light'" class="rounded-3xl p-6 sm:p-8 shadow-xl">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/30">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-2xl border border-emerald-500/20">
+                                    <i class="fa-solid fa-route text-2xl"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold tracking-tight">Cálculo de Caída de Tensión</h2>
+                                    <p class="text-xs text-slate-400">Verifique la pérdida de voltaje en conductores para asegurar el rendimiento normativo.</p>
+                                </div>
+                            </div>
+                            <button @click="saveToHistory('Caída de Tensión', `ΔV: ${voltageDropResult.deltaV.toFixed(2)}V (${voltageDropResult.percent.toFixed(2)}%)`)" class="px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2">
+                                <i class="fa-solid fa-bookmark"></i>
+                                <span>Guardar en Historial</span>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Corriente (I) [A]</label>
+                                <input type="number" step="any" x-model.number="vdrop.current" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-emerald-500 text-slate-200">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Distancia / Longitud (L)</label>
+                                <div class="flex gap-2">
+                                    <input type="number" step="any" x-model.number="vdrop.length" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-emerald-500 text-slate-200">
+                                    <select x-model="vdrop.unit" class="bg-slate-900 border border-slate-700 rounded-xl px-3 text-xs text-slate-300">
+                                        <option value="m">Metros</option>
+                                        <option value="ft">Pies</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Sección del Conductor</label>
+                                <select x-model.number="vdrop.section" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-emerald-500 text-slate-200">
+                                    <option value="1.5">1.5 mm² (16 AWG)</option>
+                                    <option value="2.5" selected>2.5 mm² (14 AWG)</option>
+                                    <option value="4">4.0 mm² (12 AWG)</option>
+                                    <option value="6">6.0 mm² (10 AWG)</option>
+                                    <option value="10">10 mm² (8 AWG)</option>
+                                    <option value="16">16 mm² (6 AWG)</option>
+                                    <option value="25">25 mm² (4 AWG)</option>
+                                    <option value="35">35 mm² (2 AWG)</option>
+                                    <option value="50">50 mm² (1/0 AWG)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Material</label>
+                                <select x-model="vdrop.material" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-emerald-500 text-slate-200">
+                                    <option value="copper">Cobre (Resistividad 0.0172)</option>
+                                    <option value="aluminum">Aluminio (Resistividad 0.0282)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Sistema Eléctrico</label>
+                                <select x-model="vdrop.system" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-emerald-500 text-slate-200">
+                                    <option value="mono">Monofásico (2 hilos)</option>
+                                    <option value="tri">Trifásico (Fase a Fase)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Voltaje Nominal (V)</label>
+                                <input type="number" step="any" x-model.number="vdrop.nominalV" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 focus:ring-2 focus:ring-emerald-500 text-slate-200">
+                            </div>
+                        </div>
+
+                        <!-- Resultado V-Drop -->
+                        <div class="bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 rounded-2xl p-6">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-4">Análisis de Caída de Tensión</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800">
+                                    <span class="text-xs text-slate-400">Caída de Tensión (ΔV)</span>
+                                    <p class="text-2xl font-extrabold text-emerald-400 mt-1" x-text="voltageDropResult.deltaV.toFixed(2) + ' V'"></p>
+                                </div>
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800">
+                                    <span class="text-xs text-slate-400">Porcentaje de Pérdida (%)</span>
+                                    <p class="text-2xl font-extrabold mt-1" :class="voltageDropResult.percent <= 3 ? 'text-emerald-400' : 'text-amber-400'" x-text="voltageDropResult.percent.toFixed(2) + '%'"></p>
+                                </div>
+                            </div>
+                            <div class="p-4 rounded-xl border text-xs" :class="voltageDropResult.percent <= 3 ? 'bg-emerald-950/40 border-emerald-800/60 text-emerald-300' : 'bg-amber-950/40 border-amber-800/60 text-amber-300'">
+                                <i class="fa-solid fa-circle-info mr-1.5"></i>
+                                <span x-text="voltageDropResult.percent <= 3 ? 'La caída de tensión es inferior al 3%, cumpliendo perfectamente con el criterio normativo óptimo.' : 'Advertencia: La caída supera el 3% recomendado. Se aconseja incrementar la sección del conductor.'"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. CÓDIGO DE COLORES DE RESISTENCIAS -->
+                <div x-show="activeTab === 'resistor'" x-cloak class="space-y-6">
+                    <div :class="darkMode ? 'glass-dark' : 'glass-light'" class="rounded-3xl p-6 sm:p-8 shadow-xl">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/30">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="p-3 bg-purple-500/10 text-purple-400 rounded-2xl border border-purple-500/20">
+                                    <i class="fa-solid fa-microchip text-2xl"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold tracking-tight">Código de Colores de Resistencias</h2>
+                                    <p class="text-xs text-slate-400">Calculadora visual interactiva para componentes de 4 y 5 bandas.</p>
+                                </div>
+                            </div>
+                            <button @click="saveToHistory('Código Colores', resistorResult.text)" class="px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/30 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2">
+                                <i class="fa-solid fa-bookmark"></i>
+                                <span>Guardar en Historial</span>
+                            </button>
+                        </div>
+
+                        <!-- Representación Visual Estilizada -->
+                        <div class="w-full bg-slate-900/90 rounded-2xl h-40 flex items-center justify-center relative mb-8 overflow-hidden shadow-inner border border-slate-800">
+                            <div class="w-28 h-2.5 bg-slate-600 rounded-full"></div>
+                            <div class="w-64 h-20 bg-amber-100/90 dark:bg-amber-950/90 rounded-full border-2 border-amber-300 dark:border-amber-700 flex items-center justify-around px-10 shadow-2xl relative">
+                                <div class="w-3.5 h-full rounded-sm shadow-md transition-all" :style="'background-color: ' + getBandHex(resistor.band1)"></div>
+                                <div class="w-3.5 h-full rounded-sm shadow-md transition-all" :style="'background-color: ' + getBandHex(resistor.band2)"></div>
+                                <div class="w-3.5 h-full rounded-sm shadow-md transition-all" x-show="resistor.bandsCount === 5" :style="'background-color: ' + getBandHex(resistor.band3)"></div>
+                                <div class="w-3.5 h-full rounded-sm shadow-md transition-all" :style="'background-color: ' + getMultiplierHex(resistor.multiplier)"></div>
+                                <div class="w-6"></div>
+                                <div class="w-3.5 h-full rounded-sm shadow-md transition-all" :style="'background-color: ' + getToleranceHex(resistor.tolerance)"></div>
+                            </div>
+                            <div class="w-28 h-2.5 bg-slate-600 rounded-full"></div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mb-6">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Cantidad de Bandas</label>
+                                <select x-model.number="resistor.bandsCount" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-200">
+                                    <option value="4">4 Bandas</option>
+                                    <option value="5">5 Bandas</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Banda 1 (Dígito)</label>
+                                <select x-model.number="resistor.band1" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-200">
+                                    <template x-for="(col, idx) in digitColors" :key="idx">
+                                        <option :value="idx" x-text="col.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Banda 2 (Dígito)</label>
+                                <select x-model.number="resistor.band2" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-200">
+                                    <template x-for="(col, idx) in digitColors" :key="idx">
+                                        <option :value="idx" x-text="col.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div x-show="resistor.bandsCount === 5">
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Banda 3 (Dígito)</label>
+                                <select x-model.number="resistor.band3" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-200">
+                                    <template x-for="(col, idx) in digitColors" :key="idx">
+                                        <option :value="idx" x-text="col.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Multiplicador</label>
+                                <select x-model.number="resistor.multiplier" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-200">
+                                    <template x-for="item in multiplierColors" :key="item.value">
+                                        <option :value="item.value" x-text="item.name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Tolerancia</label>
+                                <select x-model.number="resistor.tolerance" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-200">
+                                    <option value="1">Marrón (±1%)</option>
+                                    <option value="2">Rojo (±2%)</option>
+                                    <option value="0.5">Verde (±0.5%)</option>
+                                    <option value="0.25">Azul (±0.25%)</option>
+                                    <option value="5" selected>Dorado (±5%)</option>
+                                    <option value="10">Plateado (±10%)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-purple-500/10 to-indigo-500/10 border border-purple-500/20 rounded-2xl p-6 text-center">
+                            <span class="text-xs font-bold uppercase tracking-wider text-purple-400 block mb-1">Valor Óhmico Calculado</span>
+                            <p class="text-3xl font-extrabold text-purple-400" x-text="resistorResult.text"></p>
+                            <p class="text-xs text-slate-400 mt-1" x-text="'Tolerancia estimada: ±' + resistor.tolerance + '%'"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 4. DIMENSIONAMIENTO DE PROTECCIONES -->
+                <div x-show="activeTab === 'breaker'" x-cloak class="space-y-6">
+                    <div :class="darkMode ? 'glass-dark' : 'glass-light'" class="rounded-3xl p-6 sm:p-8 shadow-xl">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/30">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="p-3 bg-amber-500/10 text-amber-400 rounded-2xl border border-amber-500/20">
+                                    <i class="fa-solid fa-shield-halved text-2xl"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold tracking-tight">Protecciones y Conductores</h2>
+                                    <p class="text-xs text-slate-400">Selección recomendada de interruptor termomagnético (Breaker) y sección mínima.</p>
+                                </div>
+                            </div>
+                            <button @click="saveToHistory('Protecciones', `Breaker: ${breakerResult.breaker}A, Cable: ${breakerResult.section}mm²`)" class="px-4 py-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2">
+                                <i class="fa-solid fa-bookmark"></i>
+                                <span>Guardar en Historial</span>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-6">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Potencia Total Requerida (W o VA)</label>
+                                <input type="number" step="any" x-model.number="breakerCalc.power" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-200">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Voltaje del Sistema (V)</label>
+                                <input type="number" step="any" x-model.number="breakerCalc.voltage" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-200">
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 rounded-2xl p-6">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-4">Recomendación de Ingeniería</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800">
+                                    <span class="text-xs text-slate-400">Corriente de Diseño (Ib)</span>
+                                    <p class="text-2xl font-extrabold text-amber-400 mt-1" x-text="breakerResult.ib.toFixed(2) + ' A'"></p>
+                                </div>
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800">
+                                    <span class="text-xs text-slate-400">Breaker Sugerido (In)</span>
+                                    <p class="text-2xl font-extrabold text-amber-400 mt-1" x-text="breakerResult.breaker + ' A'"></p>
+                                </div>
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800">
+                                    <span class="text-xs text-slate-400">Sección Cable Mínima</span>
+                                    <p class="text-2xl font-extrabold text-amber-400 mt-1" x-text="breakerResult.section + ' mm²'"></p>
+                                </div>
+                            </div>
+                            <p class="text-xs text-slate-300 bg-slate-900/50 p-3 rounded-xl border border-slate-800">Basado en criterios normativos habituales que garantizan que la corriente nominal del dispositivo proteja eficientemente al conductor ante sobrecargas.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 5. COSTO DE ENERGÍA Y CONSUMO (KWH) -->
+                <div x-show="activeTab === 'energy'" x-cloak class="space-y-6">
+                    <div :class="darkMode ? 'glass-dark' : 'glass-light'" class="rounded-3xl p-6 sm:p-8 shadow-xl">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-6 border-b border-slate-700/30">
+                            <div class="flex items-center space-x-3.5">
+                                <div class="p-3 bg-blue-500/10 text-blue-400 rounded-2xl border border-blue-500/20">
+                                    <i class="fa-solid fa-lightbulb text-2xl"></i>
+                                </div>
+                                <div>
+                                    <h2 class="text-xl font-bold tracking-tight">Consumo de Energía y Costo (kWh)</h2>
+                                    <p class="text-xs text-slate-400">Calcula el gasto diario, mensual y anual de equipos eléctricos.</p>
+                                </div>
+                            </div>
+                            <button @click="saveToHistory('Costo de Energía', `${energyResult.monthlyKWh.toFixed(1)} kWh/mes ($${energyResult.monthlyCost.toFixed(2)})`)" class="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-xl text-xs font-semibold transition-all flex items-center space-x-2">
+                                <i class="fa-solid fa-bookmark"></i>
+                                <span>Guardar en Historial</span>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Potencia del Equipo (Watts)</label>
+                                <input type="number" step="any" x-model.number="energy.watts" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-200">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Horas de Uso Diario</label>
+                                <input type="number" step="any" x-model.number="energy.hoursPerDay" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-200">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-2">Costo por kWh (Moneda local)</label>
+                                <input type="number" step="any" x-model.number="energy.costPerKWh" class="w-full bg-slate-900/60 border border-slate-700/80 rounded-xl px-4 py-3.5 text-slate-200">
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-br from-blue-500/15 to-indigo-500/15 border border-blue-500/20 rounded-2xl p-6">
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-blue-400 mb-4">Proyección de Consumo</h3>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800">
+                                    <span class="text-xs text-slate-400">Consumo Diario</span>
+                                    <p class="text-2xl font-extrabold text-blue-400 mt-1" x-text="energyResult.dailyKWh.toFixed(2) + ' kWh'"></p>
+                                </div>
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800">
+                                    <span class="text-xs text-slate-400">Consumo Mensual (30d)</span>
+                                    <p class="text-2xl font-extrabold text-blue-400 mt-1" x-text="energyResult.monthlyKWh.toFixed(2) + ' kWh'"></p>
+                                </div>
+                                <div class="bg-slate-900/70 p-4 rounded-xl border border-slate-800">
+                                    <span class="text-xs text-slate-400">Costo Estimado Mensual</span>
+                                    <p class="text-2xl font-extrabold text-emerald-400 mt-1" x-text="'$' + energyResult.monthlyCost.toFixed(2)"></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 6. GUÍA DE REFERENCIA RÁPIDA -->
+                <div x-show="activeTab === 'reference'" x-cloak class="space-y-6">
+                    <div :class="darkMode ? 'glass-dark' : 'glass-light'" class="rounded-3xl p-6 sm:p-8 shadow-xl">
+                        <div class="flex items-center space-x-3.5 mb-6 pb-6 border-b border-slate-700/30">
+                            <div class="p-3 bg-indigo-500/10 text-indigo-400 rounded-2xl border border-indigo-500/20">
+                                <i class="fa-solid fa-book text-2xl"></i>
+                            </div>
+                            <div>
+                                <h2 class="text-xl font-bold tracking-tight">Guía de Referencia Rápida</h2>
+                                <p class="text-xs text-slate-400">Formularios y conceptos clave para el trabajo eléctrico en campo.</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                            <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                                <h4 class="font-bold text-cyan-400 mb-2 flex items-center"><i class="fa-solid fa-bolt mr-2"></i> Ley de Ohm Básica</h4>
+                                <p class="text-xs text-slate-300 space-y-1">
+                                    • Voltaje ($V$) = $I \times R$<br>
+                                    • Corriente ($I$) = $V / R$<br>
+                                    • Resistencia ($R$) = $V / I$
+                                </p>
+                            </div>
+                            <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                                <h4 class="font-bold text-blue-400 mb-2 flex items-center"><i class="fa-solid fa-bolt-lightning mr-2"></i> Potencia Monofásica y Trifásica</h4>
+                                <p class="text-xs text-slate-300 space-y-1">
+                                    • Monofásica: $P = V \times I \times \cos(\varphi)$<br>
+                                    • Trifásica: $P = \sqrt{3} \times V_L \times I_L \times \cos(\varphi)$
+                                </p>
+                            </div>
+                            <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                                <h4 class="font-bold text-emerald-400 mb-2 flex items-center"><i class="fa-solid fa-route mr-2"></i> Caída de Tensión (Monofásica)</h4>
+                                <p class="text-xs text-slate-300">
+                                    $\Delta V = \frac{2 \times L \times I \times \rho}{S}$<br>
+                                    Donde $\rho$ es la resistividad del conductor y $S$ la sección en $mm^2$.
+                                </p>
+                            </div>
+                            <div class="p-5 rounded-2xl bg-slate-900/60 border border-slate-800">
+                                <h4 class="font-bold text-purple-400 mb-2 flex items-center"><i class="fa-solid fa-shield-halved mr-2"></i> Criterios de Protección</h4>
+                                <p class="text-xs text-slate-300">
+                                    La corriente nominal del interruptor ($I_n$) debe ser superior o igual a la corriente de carga ($I_b$) y menor que la capacidad máxima del conductor ($I_z$).
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </main>
+        </div>
+
+        <!-- History Modal -->
+        <div x-show="showHistoryModal" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <div @click.away="showHistoryModal = false" class="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
+                <div class="flex items-center justify-between mb-4 pb-3 border-b border-slate-800">
+                    <h3 class="font-bold text-base flex items-center space-x-2 text-slate-200">
+                        <i class="fa-solid fa-clock-rotate-left text-cyan-400"></i>
+                        <span>Historial de Cálculos Guardados</span>
+                    </h3>
+                    <button @click="showHistoryModal = false" class="text-slate-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+                </div>
+
+                <div class="max-h-80 overflow-y-auto custom-scrollbar space-y-3 mb-4">
+                    <template x-for="(item, index) in history" :key="index">
+                        <div class="p-3.5 bg-slate-800/60 border border-slate-700/60 rounded-xl flex items-center justify-between">
+                            <div>
+                                <span class="text-xs font-bold text-cyan-400" x-text="item.title"></span>
+                                <p class="text-sm font-medium text-slate-200 mt-0.5" x-text="item.result"></p>
+                                <span class="text-[10px] text-slate-400" x-text="item.date"></span>
+                            </div>
+                            <button @click="removeHistoryItem(index)" class="text-slate-500 hover:text-rose-400 p-2"><i class="fa-solid fa-trash-can"></i></button>
+                        </div>
+                    </template>
+                    <div x-show="history.length === 0" class="text-center py-8 text-slate-400 text-xs">
+                        No hay cálculos guardados todavía.
+                    </div>
+                </div>
+
+                <div class="flex justify-between">
+                    <button @click="clearHistory()" x-show="history.length > 0" class="px-4 py-2 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-xl text-xs font-semibold transition-all">Limpiar Historial</button>
+                    <button @click="showHistoryModal = false" class="ml-auto px-4 py-2 bg-slate-800 text-slate-300 hover:bg-slate-700 rounded-xl text-xs font-semibold transition-all">Cerrar</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Copy Toast Notification -->
+        <div x-show="showToast" x-transition.opacity x-cloak class="fixed bottom-6 right-6 z-50 bg-cyan-500 text-slate-950 font-bold px-4 py-3 rounded-2xl shadow-xl flex items-center space-x-2 text-xs">
+            <i class="fa-solid fa-check text-sm"></i>
+            <span x-text="toastMessage"></span>
+        </div>
+
+        <!-- Footer -->
+        <footer class="text-center py-6 text-xs text-slate-400 border-t border-slate-800 mt-auto">
+            ElectroCalc &copy; 2026 - Herramienta Profesional.
+        </footer>
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        function appManager() {
+            return {
+                darkMode: true,
+                activeTab: 'ohm',
+                showHistoryModal: false,
+                showToast: false,
+                toastMessage: '¡Copiado al portapapeles!',
+                history: [],
+
+                init() {
+                    const saved = localStorage.getItem('electrocalc_history');
+                    if (saved) {
+                        try { this.history = JSON.parse(saved); } catch (e) { this.history = []; }
+                    }
+                },
+
+                toggleDarkMode() {
+                    this.darkMode = !this.darkMode;
+                },
+
+                saveToHistory(title, result) {
+                    const newItem = {
+                        title: title,
+                        result: result,
+                        date: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+                    };
+                    this.history.unshift(newItem);
+                    if (this.history.length > 20) this.history.pop();
+                    localStorage.setItem('electrocalc_history', JSON.stringify(this.history));
+                    this.triggerToast('¡Resultado guardado en historial!');
+                },
+
+                removeHistoryItem(index) {
+                    this.history.splice(index, 1);
+                    localStorage.setItem('electrocalc_history', JSON.stringify(this.history));
+                },
+
+                clearHistory() {
+                    this.history = [];
+                    localStorage.removeItem('electrocalc_history');
+                },
+
+                copyText(text) {
+                    if (!text) return;
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(text);
+                    } else {
+                        const el = document.createElement('textarea');
+                        el.value = text;
+                        document.body.appendChild(el);
+                        el.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(el);
+                    }
+                    this.triggerToast('¡Copiado: ' + text + '!');
+                },
+
+                triggerToast(msg) {
+                    this.toastMessage = msg;
+                    this.showToast = true;
+                    setTimeout(() => { this.showToast = false; }, 2500);
+                },
+
+                tabs: [
+                    { id: 'ohm', name: 'Ley de Ohm y Potencia', icon: 'fa-solid fa-calculator' },
+                    { id: 'voltage_drop', name: 'Caída de Tensión', icon: 'fa-solid fa-route' },
+                    { id: 'resistor', name: 'Código de Colores', icon: 'fa-solid fa-microchip' },
+                    { id: 'breaker', name: 'Protecciones y Cables', icon: 'fa-solid fa-shield-halved' },
+                    { id: 'energy', name: 'Costo de Energía', icon: 'fa-solid fa-lightbulb' },
+                    { id: 'reference', name: 'Guía de Referencia', icon: 'fa-solid fa-book' }
+                ],
+
+                // 1. Ohm Data
+                ohm: {
+                    var1: 'V',
+                    val1: 230,
+                    var2: 'I',
+                    val2: 10
+                },
+                get ohmResult() {
+                    let v = null, i = null, r = null, p = null;
+                    let v1 = this.ohm.val1;
+                    let v2 = this.ohm.val2;
+                    let var1 = this.ohm.var1;
+                    let var2 = this.ohm.var2;
+
+                    if (var1 === var2) return { V: null, I: null, R: null, P: null, formulaText: 'Seleccione variables distintas.' };
+
+                    let map = {};
+                    map[var1] = v1;
+                    map[var2] = v2;
+                    let formulaText = '';
+
+                    if ('V' in map && 'I' in map) {
+                        v = map['V']; i = map['I'];
+                        if (i !== 0) { r = v / i; p = v * i; }
+                        formulaText = 'R = V / I, P = V × I';
+                    } else if ('V' in map && 'R' in map) {
+                        v = map['V']; r = map['R'];
+                        if (r !== 0) { i = v / r; p = (v * v) / r; }
+                        formulaText = 'I = V / R, P = V² / R';
+                    } else if ('V' in map && 'P' in map) {
+                        v = map['V']; p = map['P'];
+                        if (v !== 0) { i = p / v; r = (v * v) / p; }
+                        formulaText = 'I = P / V, R = V² / P';
+                    } else if ('I' in map && 'R' in map) {
+                        i = map['I']; r = map['R'];
+                        v = i * r; p = (i * i) * r;
+                        formulaText = 'V = I × R, P = I² × R';
+                    } else if ('I' in map && 'P' in map) {
+                        i = map['I']; p = map['P'];
+                        if (i !== 0) { v = p / i; r = p / (i * i); }
+                        formulaText = 'V = P / I, R = P / I²';
+                    } else if ('R' in map && 'P' in map) {
+                        r = map['R']; p = map['P'];
+                        v = Math.sqrt(p * r);
+                        if (v !== 0) { i = p / v; }
+                        formulaText = 'V = √(P × R), I = P / V';
+                    }
+
+                    return { V: v, I: i, R: r, P: p, formulaText: formulaText };
+                },
+                get ohmResultText() {
+                    let r = this.ohmResult;
+                    return `V: ${r.V !== null ? r.V.toFixed(2) : '-'}V, I: ${r.I !== null ? r.I.toFixed(2) : '-'}A, R: ${r.R !== null ? r.R.toFixed(2) : '-'}Ω, P: ${r.P !== null ? r.P.toFixed(2) : '-'}W`;
+                },
+
+                // 2. Voltage Drop Data
+                vdrop: {
+                    current: 16,
+                    length: 30,
+                    unit: 'm',
+                    section: 2.5,
+                    material: 'copper',
+                    system: 'mono',
+                    nominalV: 230
+                },
+                get voltageDropResult() {
+                    let I = this.vdrop.current || 0;
+                    let L = this.vdrop.unit === 'ft' ? this.vdrop.length * 0.3048 : (this.vdrop.length || 0);
+                    let S = this.vdrop.section || 1;
+                    let rho = this.vdrop.material === 'copper' ? 0.0172 : 0.0282;
+                    let factor = this.vdrop.system === 'mono' ? 2 : Math.sqrt(3);
+
+                    let deltaV = (factor * rho * L * I) / S;
+                    let nominal = this.vdrop.nominalV || 230;
+                    let percent = nominal > 0 ? (deltaV / nominal) * 100 : 0;
+                    return { deltaV: deltaV, percent: percent };
+                },
+
+                // 3. Resistor Data
+                resistor: {
+                    bandsCount: 4,
+                    band1: 1, // Marrón
+                    band2: 0, // Negro
+                    band3: 0,
+                    multiplier: 100, // Rojo (x100) -> 1k ohm
+                    tolerance: 5
+                },
+                digitColors: [
+                    { name: 'Negro', hex: '#090d16' },
+                    { name: 'Marrón', hex: '#8B4513' },
+                    { name: 'Rojo', hex: '#EF4444' },
+                    { name: 'Naranja', hex: '#F97316' },
+                    { name: 'Amarillo', hex: '#EAB308' },
+                    { name: 'Verde', hex: '#10B981' },
+                    { name: 'Azul', hex: '#3B82F6' },
+                    { name: 'Violeta', hex: '#8B5CF6' },
+                    { name: 'Gris', hex: '#64748B' },
+                    { name: 'Blanco', hex: '#F8FAFC' }
+                ],
+                multiplierColors: [
+                    { name: 'Negro (x1)', value: 1, hex: '#090d16' },
+                    { name: 'Marrón (x10)', value: 10, hex: '#8B4513' },
+                    { name: 'Rojo (x100)', value: 100, hex: '#EF4444' },
+                    { name: 'Naranja (x1k)', value: 1000, hex: '#F97316' },
+                    { name: 'Amarillo (x10k)', value: 10000, hex: '#EAB308' },
+                    { name: 'Verde (x100k)', value: 100000, hex: '#10B981' },
+                    { name: 'Azul (x1M)', value: 1000000, hex: '#3B82F6' },
+                    { name: 'Dorado (x0.1)', value: 0.1, hex: '#F59E0B' },
+                    { name: 'Plateado (x0.01)', value: 0.01, hex: '#94A3B8' }
+                ],
+                getBandHex(idx) {
+                    return this.digitColors[idx] ? this.digitColors[idx].hex : '#000';
+                },
+                getMultiplierHex(val) {
+                    let found = this.multiplierColors.find(m => m.value === val);
+                    return found ? found.hex : '#000';
+                },
+                getToleranceHex(tol) {
+                    if (tol === 1) return '#8B4513';
+                    if (tol === 2) return '#EF4444';
+                    if (tol === 0.5) return '#10B981';
+                    if (tol === 0.25) return '#3B82F6';
+                    if (tol === 5) return '#F59E0B';
+                    return '#94A3B8';
+                },
+                get resistorResult() {
+                    let digits = this.resistor.bandsCount === 4 ? 
+                        `${this.resistor.band1}${this.resistor.band2}` : 
+                        `${this.resistor.band1}${this.resistor.band2}${this.resistor.band3}`;
+                    let base = parseInt(digits, 10);
+                    let total = base * this.resistor.multiplier;
+                    let text = '';
+                    if (total >= 1000000) text = (total / 1000000).toFixed(2) + ' MΩ';
+                    else if (total >= 1000) text = (total / 1000).toFixed(2) + ' kΩ';
+                    else text = total.toFixed(2) + ' Ω';
+                    return { text: text };
+                },
+
+                // 4. Breaker Data
+                breakerCalc: {
+                    power: 4400,
+                    voltage: 230
+                },
+                get breakerResult() {
+                    let p = this.breakerCalc.power || 0;
+                    let v = this.breakerCalc.voltage || 230;
+                    let ib = v > 0 ? p / v : 0;
+                    let standard = [6, 10, 16, 20, 25, 32, 40, 50, 63];
+                    let breaker = standard.find(b => b >= ib) || 63;
+                    let section = 1.5;
+                    if (breaker <= 10) section = 1.5;
+                    else if (breaker <= 16) section = 2.5;
+                    else if (breaker <= 25) section = 4;
+                    else if (breaker <= 32) section = 6;
+                    else if (breaker <= 40) section = 10;
+                    else section = 16;
+                    return { ib: ib, breaker: breaker, section: section };
+                },
+
+                // 5. Energy Cost Data
+                energy: {
+                    watts: 1500,
+                    hoursPerDay: 5,
+                    costPerKWh: 0.25
+                },
+                get energyResult() {
+                    let dailyKWh = (this.energy.watts * this.energy.hoursPerDay) / 1000;
+                    let monthlyKWh = dailyKWh * 30;
+                    let monthlyCost = monthlyKWh * this.energy.costPerKWh;
+                    return { dailyKWh: dailyKWh, monthlyKWh: monthlyKWh, monthlyCost: monthlyCost };
+                }
+            }
+        }
+    </script>
+</body>
+</html>
